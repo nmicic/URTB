@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install dependencies (Ubuntu)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y gcc make
+
+      - name: Build
+        run: make CC=cc CFLAGS="-Wall -Wextra -std=c11 -O2"
+
+      - name: Test
+        run: make test
+
+      # Enforce the AC-07-05 "no unexpected dynamic libraries" property on
+      # every push. Whitelist tracks the legitimate Linux build (which
+      # links libutil for forkpty via -lutil — see Makefile LDLIBS).
+      - name: Check binary dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          ldd urtb
+          unexpected=$(ldd urtb | awk '{print $1}' | sed 's|.*/||' \
+            | grep -v '^$' \
+            | grep -Ev '^(linux-vdso|libc|libm|libutil|ld-linux)' || true)
+          if [ -n "$unexpected" ]; then
+            echo "FAIL: unexpected dynamic dependencies:" >&2
+            printf '%s\n' "$unexpected" >&2
+            exit 1
+          fi
+          echo "OK: only whitelisted system libraries linked"
+
+      - name: Check binary dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          otool -L urtb
+          unexpected=$(otool -L urtb | tail -n +2 | awk '{print $1}' \
+            | grep -Ev 'libSystem|CoreFoundation|libresolv' || true)
+          if [ -n "$unexpected" ]; then
+            echo "FAIL: unexpected dynamic dependencies:" >&2
+            printf '%s\n' "$unexpected" >&2
+            exit 1
+          fi
+          echo "OK: only whitelisted system libraries linked"
+
+  test-no-otp:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y gcc make
+
+      - name: Build and test without OTP
+        run: make CC=gcc CFLAGS="-Wall -Wextra -std=c11 -O2" OTP=0 && make test OTP=0
+
+  test-asan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y gcc make
+
+      # -O1 (not -O2) keeps ASAN stack traces precise. Linux ASAN=1
+      # enables address+leak+undefined sanitizers via the Makefile.
+      - name: Build and test with ASAN
+        run: make CC=gcc CFLAGS="-Wall -Wextra -std=c11 -O1" test ASAN=1

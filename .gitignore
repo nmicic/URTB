@@ -1,0 +1,30 @@
+# Build artifacts
+urtb
+urtb-static
+urtb-test
+urtb-prod-saved
+tools/frame_test
+tools/otp_test
+tools/capsule_version_test
+*.o
+*.a
+
+# Editor backups
+*~
+*.swp
+*.swo
+.DS_Store
+
+# Test key material — never commit
+*.capsule
+*.otp
+
+# Harness state (not source)
+.claude/
+
+# HW test logs and review artifacts
+test-reports/
+reports_tmux/
+
+# PlatformIO build artifacts
+firmware/.pio/

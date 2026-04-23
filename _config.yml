@@ -1,0 +1,14 @@
+title: URTB
+description: Encrypted PTY tunnel over ESP-NOW/LoRa or SSH jump hosts. XChaCha20-Poly1305.
+theme: jekyll-theme-cayman
+
+# Exclude non-doc directories from the generated site.
+exclude:
+  - Makefile
+  - src/
+  - tools/
+  - firmware/
+  - compartment/
+  - references/
+  - .github/
+  - .gitignore
